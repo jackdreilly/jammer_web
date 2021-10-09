@@ -9,6 +9,7 @@ export default function Home() {
   const [progression, setProgression] = useState<string>("1 6 2 5");
   const [key, setKey] = useState<string>("C");
   const [tempo, setTempo] = useState<string>("150");
+  const [error, setError] = useState<string>();
   return (
     <div style={{ margin: "2%", padding: "2%" }}>
       <h1>Jammer</h1>
@@ -61,6 +62,11 @@ export default function Home() {
               ["tempo", tempo],
             ]).toString();
             const response = await fetch(url.toString());
+            if (response.status != 200) {
+              setError(JSON.stringify(await response.json(), undefined, 3));
+              return;
+            }
+            setError(undefined);
             const blob = await response.blob();
             download(blob, "jammer.midi");
           }}
@@ -68,6 +74,12 @@ export default function Home() {
           Download Midi
         </Button>
       </Box>
+      {error && (
+        <div>
+          <h2>Error</h2>
+          <pre>{error}</pre>
+        </div>
+      )}
     </div>
   );
 }
