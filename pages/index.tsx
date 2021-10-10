@@ -3,7 +3,9 @@ import { Box, Button, InputAdornment, TextField } from "@mui/material";
 import download from "downloadjs";
 import React, { useState } from "react";
 
-const url = new URL("https://jammer-okdhwptp6q-ew.a.run.app");
+const url = new URL(
+  process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000"
+);
 
 export default function Home() {
   const [progression, setProgression] = useState<string>("1 6 2 5");
