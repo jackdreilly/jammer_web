@@ -86,7 +86,7 @@ export default function Home() {
             <div>
               <TextField
                 fullWidth={true}
-                style={{width: "100%"}}
+                style={{ width: "100%" }}
                 required
                 id="outlined-required-chords-names"
                 label="Chord Names"
