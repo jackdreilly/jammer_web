@@ -5,7 +5,7 @@ import {
   InputAdornment,
   TextField,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
 } from "@mui/material";
 import download from "downloadjs";
 import React, { useState } from "react";
@@ -19,12 +19,20 @@ enum ChordType {
   chord_names = "chord_names",
 }
 
+enum SongStyle {
+  jazz = "jazz",
+  bossa_nova = "bossa_nova",
+  rock = "rock",
+  virtual_insanity = "virtual_insanity",
+}
+
 interface Song {
   name: string;
   key: string;
   chord_type: ChordType;
   progression: string;
   tempo: string;
+  style: SongStyle;
 }
 
 const songs: Song[] = [
@@ -34,6 +42,7 @@ const songs: Song[] = [
     chord_type: ChordType.chord_numbers,
     progression: "1 1 6 6 4 5 1 1",
     tempo: "120",
+    style: SongStyle.rock,
   },
   {
     name: "LAX",
@@ -41,6 +50,7 @@ const songs: Song[] = [
     chord_type: ChordType.chord_names,
     progression: "Dm7 G7 Cmaj7 A7b9",
     tempo: "128",
+    style: SongStyle.rock,
   },
   {
     name: "The Girl From Ipanema",
@@ -49,6 +59,7 @@ const songs: Song[] = [
     progression:
       "fmaj7 fmaj7 g13 g13 gm7 f#7b5 fmaj7 f#7b5 fmaj7 fmaj7 g13 g13 gm7 f#7b5 fmaj7 f#7b5 F#maj7 F#maj7 B9 B9 F#m7 F#m7 D9 D9 Gm7 Gm7 Eb9 Eb9 Am7 Abm7 Gm7 F#7b5 fmaj7 fmaj7 g13 g13 gm7 f#7b5 fmaj7 f#7b5",
     tempo: "130",
+    style: SongStyle.bossa_nova,
   },
   {
     name: "Anthropology",
@@ -57,13 +68,15 @@ const songs: Song[] = [
     progression:
       "Bb6 G7#5 | Cm7 F7 | Bbmaj7 Gm7 | Cm7 F7 | Fm7 Bb7 | Eb7 Ab7 | Dm7 G7b9 | Cm7 F7 | Bb6 G7#5 | Cm7 F7 | Bbmaj7 Gm7 | Cm7 F7 | Fm7 Bb7 | Eb7 Ab7 | Cm7 F7 | Bb6 | D7 | D7 | G7 | G7 | C7 | C7 | F7 | F7 | Bb6 G7#5 | Cm7 F7 | Bbmaj7 Gm7 | Cm7 F7 | Fm7 Bb7 | Eb7 Ab7 | Cm7 F7 | Bb6",
     tempo: "180",
+    style: SongStyle.jazz,
   },
   {
     name: "Sunday Morning",
     key: "C",
     chord_type: ChordType.chord_numbers,
-    progression: "2 5 1 1",
-    tempo: "176",
+    progression: "2 5 | 1 1",
+    tempo: "88",
+    style: SongStyle.virtual_insanity,
   },
   {
     name: "Piano w/ Jonny",
@@ -71,6 +84,7 @@ const songs: Song[] = [
     chord_type: ChordType.chord_numbers,
     progression: "1 2 3 4 5 6 7 8 8 7 6 5 4 3 2 1",
     tempo: "180",
+    style: SongStyle.jazz,
   },
 ];
 
@@ -97,10 +111,9 @@ export default function Home() {
               style={{ margin: "10px" }}
               color="primary"
               value={song.name}
-              onChange={(
-                event: React.MouseEvent<HTMLElement>,
-                song_name: string
-              ) => setSong(getSong(song_name))}
+              onChange={(_, song_name: string) =>
+                song_name && setSong(getSong(song_name))
+              }
               exclusive
             >
               {songs.map((song) => (
@@ -115,7 +128,8 @@ export default function Home() {
               style={{ margin: "10px" }}
               color="primary"
               value={song.chord_type}
-              onChange={() =>
+              onChange={(_, value) =>
+                value &&
                 setSong(
                   song.chord_type === ChordType.chord_numbers
                     ? getSong("LAX")
@@ -130,7 +144,24 @@ export default function Home() {
               </ToggleButton>
             </ToggleButtonGroup>
           </div>
-
+          <div>
+            <ToggleButtonGroup
+              style={{ margin: "10px" }}
+              color="primary"
+              value={song.style}
+              onChange={(_, value) =>
+                value && setSong({ ...song, style: value })
+              }
+              exclusive
+            >
+              <ToggleButton value="jazz">Jazz</ToggleButton>
+              <ToggleButton value="rock">Rock</ToggleButton>
+              <ToggleButton value="bossa_nova">Bossa Nova</ToggleButton>
+              <ToggleButton value="virtual_insanity">
+                Virtual Insanity
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </div>
           <div>
             <TextField
               fullWidth={true}
@@ -184,18 +215,10 @@ export default function Home() {
           variant="contained"
           onClick={async () => {
             url.search = new URLSearchParams([
-              ...(song.chord_type === ChordType.chord_numbers
-                ? song.progression
-                    .split(" ")
-                    .map((x) => x.trim())
-                    .filter((x) => x)
-                    .map((x) => ["chord_numbers", x])
-                : []),
-              ...(song.chord_type === ChordType.chord_names
-                ? [["chord_names", song.progression]]
-                : []),
+              [song.chord_type, song.progression],
               ["key", song.key],
               ["tempo", song.tempo.toString()],
+              ["style", song.style.toString()],
             ]).toString();
             const response = await fetch(url.toString());
             if (response.status != 200) {
