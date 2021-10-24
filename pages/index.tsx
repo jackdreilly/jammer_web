@@ -1,14 +1,28 @@
+import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
+import SaveIcon from "@mui/icons-material/Save";
 import {
   Box,
   Button,
   InputAdornment,
+  Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
 } from "@mui/material";
 import download from "downloadjs";
-import React, { useState } from "react";
+import { initializeApp } from "firebase/app";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  getFirestore,
+  onSnapshot,
+  query,
+  QueryDocumentSnapshot,
+} from "firebase/firestore";
+import { find } from "lodash";
+import React, { useEffect, useState } from "react";
 
 const url = new URL(
   process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8000"
@@ -33,68 +47,51 @@ interface Song {
   progression: string;
   tempo: string;
   style: SongStyle;
+  custom?: boolean;
 }
+const songsCollection = collection(
+  getFirestore(
+    initializeApp({
+      apiKey: "AIzaSyAoZ-o_24pkl0dN1q5L3f5jgMYGdJ6ZYhE",
+      authDomain: "jammer-328510.firebaseapp.com",
+      projectId: "jammer-328510",
+      storageBucket: "jammer-328510.appspot.com",
+      messagingSenderId: "874868060040",
+      appId: "1:874868060040:web:7400247f3a55d92beb143d",
+    })
+  ),
+  "songs"
+).withConverter<Song>({
+  toFirestore: (song: Song) => song,
+  fromFirestore: (snapshot) => snapshot.data() as Song,
+});
 
-const songs: Song[] = [
-  {
-    name: "Stand By Me",
-    key: "C",
-    chord_type: ChordType.chord_numbers,
-    progression: "1 1 6 6 4 5 1 1",
-    tempo: "120",
-    style: SongStyle.rock,
-  },
-  {
-    name: "LAX",
-    key: "C",
-    chord_type: ChordType.chord_names,
-    progression: "Dm7 G7 Cmaj7 A7b9",
-    tempo: "128",
-    style: SongStyle.rock,
-  },
-  {
-    name: "The Girl From Ipanema",
-    key: "F",
-    chord_type: ChordType.chord_names,
-    progression:
-      "fmaj7 fmaj7 g13 g13 gm7 f#7b5 fmaj7 f#7b5 fmaj7 fmaj7 g13 g13 gm7 f#7b5 fmaj7 f#7b5 F#maj7 F#maj7 B9 B9 F#m7 F#m7 D9 D9 Gm7 Gm7 Eb9 Eb9 Am7 Abm7 Gm7 F#7b5 fmaj7 fmaj7 g13 g13 gm7 f#7b5 fmaj7 f#7b5",
-    tempo: "130",
-    style: SongStyle.bossa_nova,
-  },
-  {
-    name: "Anthropology",
-    key: "Bb",
-    chord_type: ChordType.chord_names,
-    progression:
-      "Bb6 G7#5 | Cm7 F7 | Bbmaj7 Gm7 | Cm7 F7 | Fm7 Bb7 | Eb7 Ab7 | Dm7 G7b9 | Cm7 F7 | Bb6 G7#5 | Cm7 F7 | Bbmaj7 Gm7 | Cm7 F7 | Fm7 Bb7 | Eb7 Ab7 | Cm7 F7 | Bb6 | D7 | D7 | G7 | G7 | C7 | C7 | F7 | F7 | Bb6 G7#5 | Cm7 F7 | Bbmaj7 Gm7 | Cm7 F7 | Fm7 Bb7 | Eb7 Ab7 | Cm7 F7 | Bb6",
-    tempo: "180",
-    style: SongStyle.jazz,
-  },
-  {
-    name: "Sunday Morning",
-    key: "C",
-    chord_type: ChordType.chord_numbers,
-    progression: "2 5 | 1 1",
-    tempo: "88",
-    style: SongStyle.virtual_insanity,
-  },
-  {
-    name: "Piano w/ Jonny",
-    key: "C",
-    chord_type: ChordType.chord_numbers,
-    progression: "1 2 3 4 5 6 7 8 8 7 6 5 4 3 2 1",
-    tempo: "180",
-    style: SongStyle.jazz,
-  },
-];
-
-function getSong(song_name: string): Song {
-  return songs.filter(({ name }) => name === song_name)[0];
-}
 export default function Home() {
-  const [song, setSong] = useState(getSong("Stand By Me"));
+  const [songId, setSongId] = useState<string>();
+  const [song, setSong] = useState<Song>();
   const [error, setError] = useState<string>();
-  return (
+  const [name, setName] = useState<string>(
+    `Custom Song ${new Date().toDateString()}`
+  );
+  const [songs, setSongs] = useState<QueryDocumentSnapshot<Song>[]>();
+  function getSong(id: string): QueryDocumentSnapshot<Song> {
+    return find(songs, (s) => s.id === id);
+  }
+  useEffect(() => {
+    if (song) {
+      return;
+    }
+    onSnapshot(query(songsCollection), (snapshot) => {
+      setSongs(snapshot.docs);
+      if (!song) {
+        setSongId(snapshot.docs[0].id);
+        setSong(snapshot.docs[0].data());
+      }
+    });
+  }, [song, songs]);
+  return !song ? (
+    "Loading"
+  ) : (
     <div style={{ margin: "2%", padding: "2%" }}>
       <h1>Jammer</h1>
       <Box
@@ -110,17 +107,24 @@ export default function Home() {
             <ToggleButtonGroup
               style={{ margin: "10px" }}
               color="primary"
-              value={song.name}
-              onChange={(_, song_name: string) =>
-                song_name && setSong(getSong(song_name))
-              }
+              value={songId}
+              onChange={(_, id: string) => {
+                if (!id) {
+                  return;
+                }
+                setSongId(id);
+                setSong(getSong(id).data());
+              }}
               exclusive
             >
-              {songs.map((song) => (
-                <ToggleButton key={song.name} value={song.name}>
-                  {song.name}
-                </ToggleButton>
-              ))}
+              {songs.map((songDocument) => {
+                const song = songDocument.data();
+                return (
+                  <ToggleButton key={songDocument.id} value={songDocument.id}>
+                    {song.name}
+                  </ToggleButton>
+                );
+              })}
             </ToggleButtonGroup>
           </div>
           <div>
@@ -128,14 +132,17 @@ export default function Home() {
               style={{ margin: "10px" }}
               color="primary"
               value={song.chord_type}
-              onChange={(_, value) =>
-                value &&
-                setSong(
-                  song.chord_type === ChordType.chord_numbers
-                    ? getSong("LAX")
-                    : getSong("Stand By Me")
-                )
-              }
+              onChange={(_, chord_type: string) => {
+                if (!chord_type) {
+                  return;
+                }
+                const new_song = find(
+                  songs,
+                  (s) => s.data().chord_type === chord_type
+                );
+                setSongId(new_song.id);
+                setSong(new_song.data());
+              }}
               exclusive
             >
               <ToggleButton value={ChordType.chord_names}>Names</ToggleButton>
@@ -210,28 +217,72 @@ export default function Home() {
             }}
           />
         </div>
-        <Button
-          startIcon={<DownloadIcon />}
-          variant="contained"
-          onClick={async () => {
-            url.search = new URLSearchParams([
-              [song.chord_type, song.progression],
-              ["key", song.key],
-              ["tempo", song.tempo.toString()],
-              ["style", song.style.toString()],
-            ]).toString();
-            const response = await fetch(url.toString());
-            if (response.status != 200) {
-              setError(JSON.stringify(await response.json(), undefined, 3));
-              return;
-            }
-            setError(undefined);
-            const blob = await response.blob();
-            download(blob, "jammer.midi");
-          }}
-        >
-          Download Midi
-        </Button>
+        <Stack spacing={2} direction="row">
+          <Button
+            startIcon={<DownloadIcon />}
+            color="success"
+            variant="contained"
+            onClick={async () => {
+              url.search = new URLSearchParams([
+                [song.chord_type, song.progression],
+                ["key", song.key],
+                ["tempo", song.tempo.toString()],
+                ["style", song.style.toString()],
+              ]).toString();
+              const response = await fetch(url.toString());
+              if (response.status != 200) {
+                setError(JSON.stringify(await response.json(), undefined, 3));
+                return;
+              }
+              setError(undefined);
+              const blob = await response.blob();
+              download(blob, "jammer.midi");
+            }}
+          >
+            Download Midi
+          </Button>
+          <TextField
+            required
+            id="outlined-required-save-name"
+            label="New Song Name"
+            helperText="Give your new song a name"
+            onChange={({ target: { value } }) => setName(value)}
+            value={name}
+          />
+          <Button
+            startIcon={<SaveIcon />}
+            variant="contained"
+            onClick={async () => {
+              const new_song = {
+                ...song,
+                name,
+                custom: true,
+              };
+              const doc = await addDoc(songsCollection, new_song);
+              setSongId(doc.id);
+              setSong(new_song);
+            }}
+          >
+            Save Song
+          </Button>
+          <Button
+            startIcon={<DeleteIcon />}
+            color="error"
+            variant="contained"
+            onClick={async () => {
+              if (!song.custom) {
+                alert("Cannot delete protected song!");
+                return;
+              }
+              const new_song = find(songs, (song) => song.id !== songId);
+              setSong(new_song.data());
+              setSongId(new_song.id);
+              deleteDoc(getSong(songId).ref);
+            }}
+          >
+            Delete Song
+          </Button>
+        </Stack>
       </Box>
       {error && (
         <div>
